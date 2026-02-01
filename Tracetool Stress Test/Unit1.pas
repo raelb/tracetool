@@ -172,7 +172,7 @@ begin
     for I := 1 to seCount.IntValue do
     begin
       TTrace.Debug.Send('---');
-      TTrace.Debug.Send('Left msg', 'Right msg');
+      TTrace.Debug.Send('Left msg', 'Right msg').SetColor(clWhite);
       AddObjects(1);
       S := TJson.ObjectToJsonString(FList);
       TTrace.Debug.Send('Object as string (' + FList.Count.ToString + ')', S);
@@ -181,6 +181,9 @@ begin
         FList.Count.ToString + ')', StrList);
       TTrace.Debug.SendXml('as xml', StrList.Text);
       TTrace.Debug.SendTable('as table', StrList);
+
+      TTrace.Warning.Send('Warning', 'Warning message');
+      TTrace.Error.Send('Error', 'Error message');
     end;
   finally
     StrList.Free;
