@@ -51,7 +51,9 @@ implementation
 uses
   Unt_receiver, superobject, JsonViewerFormU, JSONViewerFrameU, unt_Utils,
   Winapi.ShellAPI, HexEditorFormU, FullViewFormU, unt_TraceConfig, Vcl.Themes,
-  LoggerProConfig,
+  {$IFDEF LOGGERPRO}
+    LoggerProConfig,
+  {$ENDIF}
   unt_Format, System.UITypes;
 
 {$R *.dfm}
@@ -86,7 +88,9 @@ begin
   end;
 
   Highlighter := GetHighlighter(S);
-  Log.Info('AddComment: ' + CopyStr(S, 19, 20), Ord(Highlighter).ToString);
+  {$IFDEF LOGGERPRO}
+    Log.Info('AddComment: ' + CopyStr(S, 19, 20), Ord(Highlighter).ToString);
+  {$ENDIF}
   LoadHighlighter(Highlighter);
   //Log.Info(CopyStr('After LoadHighlighter', 32, 32), Ord(Self.FLastHighlighter).ToString);
 
@@ -189,8 +193,10 @@ begin
    end;
 
    Highlighter := GetHighlighter(Editor.Lines.Text);
-   Log.Info('AddDetails: ' + CopyStr(Editor.Lines.Text, 19, 20),
-     Ord(Highlighter).ToString);
+   {$IFDEF LOGGERPRO}
+     Log.Info('AddDetails: ' + CopyStr(Editor.Lines.Text, 19, 20),
+       Ord(Highlighter).ToString);
+   {$ENDIF}
    LoadHighlighter(Highlighter);
    exit;
 
