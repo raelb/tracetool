@@ -1,0 +1,22 @@
+/Viewer source/*.local
+/Viewer source/*.identcache
+/Tracetool-master
+/Tracetool-master.zip
+/Viewer source/dcu64
+/Tracetool Stress Test/Win32
+/Tracetool Stress Test/*.local
+/Tracetool Stress Test/*.identcache
+/Tracetool Stress Test/__recovery
+/Tracetool Stress Test/__history
+/Viewer x64/*.drc
+/Viewer x64/*.map
+/Viewer x64/*.rsm
+/Viewer x64/*.xml
+/Viewer source/__history
+/Viewer x64/currentTrace.json
+/Viewer x64/layout.ini
+/Viewer x64/*.json
+/Viewer source/*.skincfg
+/Viewer x64/*.log
+/Viewer x64/*.lnk
+/Viewer source/_DelphiDemo.txt
