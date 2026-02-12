@@ -5963,6 +5963,7 @@ var
    r : PMethodInfoHeader ;
    strMethodInfo : string ;
 begin
+  {$IFNDEF WIN64}
    MethodGroup := nil ;
    VMT := PPointer(AObject)^;
    repeat
@@ -5995,7 +5996,7 @@ begin
          break ;
       VMT := PPointer(VMT)^;
    until False;
-
+   {$ENDIF}
 end ;
 
 //------------------------------------------------------------------------------
@@ -6375,6 +6376,7 @@ Var
        pi, po : TPAByte;
        c1     : dword;
    begin
+     {$IFNDEF WIN64}
      if len > 0 then begin
        SetLength(result, ((len + 2) div 3) * 4);
        pi := pointer(data);
@@ -6406,6 +6408,7 @@ Var
        end;
      end else
        result := '';
+     {$ENDIF}
    end;
 
 begin
@@ -7685,9 +7688,11 @@ begin
 
       VT_DISPATCH :
       begin
+        {$IFNDEF WIN64}
          disp := IDispatch (v);
          ptr := integer (disp) ;
          result := '$' + inttohex (ptr,8) ;
+        {$ENDIF}
          // get the real type
 //         if disp <> nil then
 //            strType := tt_GetDispatchName (disp ) ;      // can generate strange exception (try except don't work) ...
