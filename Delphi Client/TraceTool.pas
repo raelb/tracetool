@@ -16,8 +16,8 @@ interface
 
 {$Include TraceTool.Inc}      
 
-uses Classes , windows, ActiveX , sysutils, Registry , Messages, Forms, //Dialogs,
-     comobj , AxCtrls , SyncObjs , Contnrs, Graphics , TypInfo, 
+uses Classes , windows, ActiveX , sysutils, Registry , Messages, Vcl.Forms, //Dialogs,
+     comobj , Vcl.AxCtrls , SyncObjs , Contnrs, Vcl.Graphics , TypInfo,
 
 {$ifdef COMPILER_10_UP}    // starting 2006
    WideStrings ,
@@ -27,7 +27,7 @@ uses Classes , windows, ActiveX , sysutils, Registry , Messages, Forms, //Dialog
    generics.collections ,
      HTTPApp ,
 {$endif COMPILER_12_UP}
-   menus ;
+   Vcl.menus ;
 
 {$Include TraceConst.inc}    
 
