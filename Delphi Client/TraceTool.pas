@@ -4609,7 +4609,8 @@ begin
          //   tkMethod,
          //   tkChar, tkEnumeration, tkFloat, tkSet, tkUnknown, tkVariant, tkArray, tkRecord, tkInterface,  tkDynArray, tkUString);
          case PropInfo^.PropType^.Kind of
-            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64 :
+            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64
+            {$ifdef DELPHI_16_UP}, tkUString {$endif}:
                begin
                   if AObject <> nil then begin
                      VariantPropValue := GetPropValue(AObject, String(PropInfo.Name),true) ;
@@ -4617,6 +4618,12 @@ begin
                   end ;
                   AddToFieldGroup() ;
                end ;
+            {$ifdef DELPHI_16_UP}
+            tkClassRef, tkPointer, tkProcedure {, tkMRecord} :
+               begin
+                  Prop_Value := '???' ;
+               end;
+            {$endif}
             tkClass :
                begin
                   intPropValue := GetOrdProp(AObject, PropInfo) ;
@@ -5872,7 +5879,7 @@ begin
          //  tkString, tkSet, tkClass, tkMethod, tkWChar, tkLString, tkWString,
          //  tkVariant, tkArray, tkRecord, tkInterface, tkInt64, tkDynArray, tkUString);
          case PropInfo^.PropType^.Kind of
-            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64 :
+            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64,tkUString :
                begin
                   if obj <> nil then begin
                      VariantPropValue := GetPropValue(AObject, string(PropInfo.Name),true) ;
@@ -5888,6 +5895,7 @@ begin
                   inner_addValue (subObj ,fieldNode , MaxLevel-1, AlreadyParsedObject);
                end ;
             tkMethod : begin  end ;// events
+            tkRecord : ;           // MOD_RB
             else
                begin  // enumeration, ...
                   if obj <> nil then begin
