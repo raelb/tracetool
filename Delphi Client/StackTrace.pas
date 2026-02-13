@@ -77,11 +77,22 @@ var
    var
      Info: TJclLocationInfo;
      Module : HMODULE;
+
+     function GetProcedureName: string;
+     var
+       P: Integer;
+     begin
+       Result := Info.ProcedureName;
+       P := Pos('$', Result);
+       if P > 0 then
+         Result := Copy(Result, 1, P-1);
+     end;
+
    begin
+     { don't add Address and ExeName }
+     (*
      Module := ModuleFromAddr(Addr);
-
      Result := Format('[%p]{%-12s} ', [Addr,ExtractFileName(GetModulePath(Module))]);
-
      if GetLocationInfo(Addr, Info) then
      begin
        if Info.LineNumber > 0 then
@@ -92,6 +103,16 @@ var
          else
            Result := result + Format('%s', [Info.ProcedureName]);
      end
+     *)
+
+     Result := '';
+     if GetLocationInfo(Addr, Info) then
+     begin
+       if Info.LineNumber > 0 then
+         Result := result + Format('%s (Line %u)', [GetProcedureName, Info.LineNumber])
+       else
+         Result := result + Format('%s', [GetProcedureName]);
+     end
    end;
 begin
 
@@ -100,6 +121,14 @@ begin
    group.ViewerKind := CST_VIEWER_STACK ;
    NodeEx.Members.Add (group) ;
 
+   {$IFDEF _DEBUG}
+     {$DEFINE ENABLE_STACK_TRACE}
+   {$ENDIF}
+   {$IFDEF DEBUG}
+     {$DEFINE ENABLE_STACK_TRACE}
+   {$ENDIF}
+
+   {$IFDEF ENABLE_STACK_TRACE}
    with TJclStackInfoList.Create(DisplayAllStack, 0, nil) do
    try
      if DisplayAllStack then
@@ -124,6 +153,7 @@ begin
    finally
       Free;
    end;
+  {$ENDIF}
 end ;
 
 //------------------------------------------------------------------------------
