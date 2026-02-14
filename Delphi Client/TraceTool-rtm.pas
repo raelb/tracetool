@@ -1258,6 +1258,10 @@ var
    MainTrace: ITraceToSend;
    RouteToMain: Boolean = False;
 
+const
+   LEFT_BR = '#';
+   RIGHT_BR = '#';
+
 implementation
 
 //{$ifdef DELPHI_6_UP}
@@ -1402,6 +1406,7 @@ type
       fListCriticalSection : TCriticalSection ;
       fTime : TDateTime ;
       fThreadName : string ;
+      fDupeNode: ITraceNode;
 
       // TOject reflection functions
       function  GetPropertyTypeString (const TypeKind: TTypeKind): String;
@@ -1443,7 +1448,6 @@ type
       function  getTag : integer ;
       procedure setTag (const v : integer) ;
       property Tag : integer read getTag write setTag ;
-
 
       // create a new TraceNodeEx node with the current instance as parent.
       function CreateNodeEx : ITraceNodeEx ;
@@ -3318,9 +3322,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.Send('[' + WinTraceId + '] ' + lMsg);
-
    // Ajust leftMsg in case of bstr
    pc := Pchar (lMsg) ;
    lMsg2 := pc ;
@@ -3329,6 +3330,10 @@ begin
    node := TTraceNode.create (self, true) ;
    result := node ;
    CommandList := prepareNewNode (lMsg2 , node.Id) ;  // will be freed by the thread
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + lMsg);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3348,9 +3353,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.Send('[' + WinTraceId + '] ' + leftMsg, rightMsg);
-
    // Ajust leftMsg and rightMsg in case of bstr
    pc := Pchar (leftMsg) ;  leftMsg2 := pc ;
    pc := Pchar (rightMsg) ; rightMsg2 := pc ;
@@ -3361,6 +3363,10 @@ begin
    CommandList := prepareNewNode (leftMsg2, node.Id) ;  // will be freed by the thread
    if rightMsg2 <> '' then
       addCommand (CommandList, CST_RIGHT_MSG,rightMsg2);    // param : right string
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, rightMsg);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3535,9 +3541,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.SendStrings('[' + WinTraceId + '] ' + leftMsg, strings);
-
    // create a node with same properties as "self" with new ID
    node := TTraceNode.create (self, true) ;
    result := node ;
@@ -3545,6 +3548,10 @@ begin
 
    node.AddStrings (strings);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendStrings(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, strings);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3722,9 +3729,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.SendStack('[' + WinTraceId + '] ' + leftMsg, level);
-
    // create a node with same properties as "self" with new ID
    node := TTraceNode.create (self, true) ;
    result := node ;
@@ -3733,6 +3737,10 @@ begin
    node.AddStackTrace(level+1);
    if node.fMembers <> nil then
       node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendStack(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, level);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3818,6 +3826,9 @@ begin
    if id = '' then
       raise exception.create ('Node Id is null, root node cannot be modified (for now)') ;
 
+   if FDupeNode <> nil then
+      FDupeNode.SetColor(Color);
+
    // the node has already been sent in method .Send so we need to
    // attach command to this node
 
@@ -3877,6 +3888,11 @@ begin
 
    node.AddXML(XML);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendXml(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, XML);
+
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
 
@@ -3893,9 +3909,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.SendValue('[' + WinTraceId + '] ' + leftMsg, v);
-
    // create a node with same properties as "self" with new ID
    node := TTraceNode.create (self, true) ;
    result := node ;
@@ -3903,6 +3916,10 @@ begin
 
    node.AddValue (v,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, v);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end ;
@@ -3920,9 +3937,6 @@ begin
       exit ;
    end ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.SendValue('[' + WinTraceId + '] ' + leftMsg, Obj);
-
    // create a node with same properties as "self" with new ID
    node := TTraceNode.create (self, true) ;
    result := node ;
@@ -3930,6 +3944,10 @@ begin
 
    node.AddValue (obj,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+        MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, Obj);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end ;
@@ -3986,7 +4004,7 @@ begin
       exit ;
 
    if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.Indent('[' + WinTraceId + '] ' + leftMsg, RightMsg,
+      MainTrace.Indent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, RightMsg,
         BackGroundColor, IsEnter);
 
    currentThreadId := GetCurrentThreadId() ;
@@ -4042,7 +4060,8 @@ begin
       exit ;
 
    if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
-      MainTrace.UnIndent(leftMsg, rightMsg, BackGroundColor, IsExit);
+      MainTrace.UnIndent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg,
+         rightMsg, BackGroundColor, IsExit);
 
    deleteLastContext () ;
    if (leftMsg <> '') or (rightMsg <> '') then begin
@@ -6611,6 +6630,7 @@ begin
    end ;
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
+   FDupeNode := nil;
 end;
 
 //------------------------------------------------------------------------------
@@ -6635,6 +6655,7 @@ begin
    end ;
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
+   FDupeNode := nil;
 end;
 
 //------------------------------------------------------------------------------
