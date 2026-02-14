@@ -495,11 +495,17 @@ type
    TEnumerableTObject = class(TEnumerable<tObject>);
    {$endif COMPILER_12_UP}
 
+   TDefaultSetting = (dsFollowDefault, dsTrue, dsFalse);
+
    /// ITraceToSend methodes create new traces and send it to the viewer.<p>
    /// Common interface for ITraceNode and IWinTrace.<p>
    /// TTrace.warning, debug and error are ITraceNode
    ITraceToSend = interface (ITraceNodeBase)
    ['{FD1BD5BD-DABC-4F51-B798-B91361621CBF}']
+
+      procedure setRouteToMain(const ds: TDefaultSetting);
+      function  getRouteToMain: TDefaultSetting;
+      property RouteToMain: TDefaultSetting read getRouteToMain write setRouteToMain;
 
       { send a trace (one string)
         <param name="leftMsg">The message to display in the 'traces'
@@ -1256,7 +1262,7 @@ var
    SendMethodProc    : TSendMethodProc ;
 
    MainTrace: ITraceToSend;
-   RouteToMain: Boolean = False;
+   _RouteToMain: Boolean = False;
 
 const
    LEFT_BR = '#';
@@ -1407,6 +1413,7 @@ type
       fTime : TDateTime ;
       fThreadName : string ;
       fDupeNode: ITraceNode;
+      fRouteToMain: TDefaultSetting;
 
       // TOject reflection functions
       function  GetPropertyTypeString (const TypeKind: TTypeKind): String;
@@ -1420,6 +1427,7 @@ type
       function  getLastContext  : TNodeContext ;
       procedure PushContext (NewContext: TNodeContext);
       procedure deleteLastContext ;
+      function IsRouteToMain: Boolean;
    public
 
       constructor create (const ParentNode : TTraceNode ; const generateUniqueId : boolean ) ; overload ;
@@ -1455,6 +1463,9 @@ type
       // ITraceNode
       //--------------------------------------------
 
+      // RouteToMain setting
+      procedure setRouteToMain(const ds: TDefaultSetting);
+      function  getRouteToMain: TDefaultSetting;
 
       // Send functions
       function  Send        (const lMsg : string) : ITraceNode ; Overload ;
@@ -3331,7 +3342,7 @@ begin
    result := node ;
    CommandList := prepareNewNode (lMsg2 , node.Id) ;  // will be freed by the thread
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + lMsg);
 
@@ -3364,7 +3375,7 @@ begin
    if rightMsg2 <> '' then
       addCommand (CommandList, CST_RIGHT_MSG,rightMsg2);    // param : right string
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, rightMsg);
 
@@ -3549,7 +3560,7 @@ begin
    node.AddStrings (strings);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.SendStrings(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, strings);
 
@@ -3738,7 +3749,7 @@ begin
    if node.fMembers <> nil then
       node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.SendStack(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, level);
 
@@ -3889,7 +3900,7 @@ begin
    node.AddXML(XML);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.SendXml(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, XML);
 
@@ -3917,7 +3928,7 @@ begin
    node.AddValue (v,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
          MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, v);
 
@@ -3945,7 +3956,7 @@ begin
    node.AddValue (obj,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       (result as TTraceNode).FDupeNode :=
         MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, Obj);
 
@@ -4003,7 +4014,7 @@ begin
    if (fEnabled = false) then
       exit ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       MainTrace.Indent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, RightMsg,
         BackGroundColor, IsEnter);
 
@@ -4059,7 +4070,7 @@ begin
    if (fEnabled = false) then
       exit ;
 
-   if RouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
       MainTrace.UnIndent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg,
          rightMsg, BackGroundColor, IsExit);
 
@@ -4515,12 +4526,22 @@ begin
    result := fRightMsg ;
 end;
 
+function TTraceNode.getRouteToMain: TDefaultSetting;
+begin
+  Result := FRouteToMain;
+end;
+
 //------------------------------------------------------------------------------
 
 // ITraceNodeEx
 procedure TTraceNode.setRightMsg (const v: string);
 begin
    fRightMsg := v ;
+end;
+
+procedure TTraceNode.setRouteToMain(const ds: TDefaultSetting);
+begin
+  FRouteToMain := ds;
 end;
 
 //------------------------------------------------------------------------------
@@ -5963,6 +5984,15 @@ begin
    end;
 end ;
 
+function TTraceNode.IsRouteToMain: Boolean;
+begin
+  case FRouteToMain of
+    dsFollowDefault: Result := _RouteToMain;
+    dsTrue: Result := True;
+    dsFalse: Result := False;
+  end;
+end;
+
 //------------------------------------------------------------------------------
 
 // ITraceNodeEx
@@ -6631,6 +6661,7 @@ begin
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
    FDupeNode := nil;
+   FRouteToMain := dsFollowDefault;
 end;
 
 //------------------------------------------------------------------------------
@@ -6656,6 +6687,7 @@ begin
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
    FDupeNode := nil;
+   FRouteToMain := dsFollowDefault;
 end;
 
 //------------------------------------------------------------------------------
