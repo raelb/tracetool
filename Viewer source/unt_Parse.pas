@@ -72,9 +72,30 @@ var
    IsFirstMember : boolean ;
    CurrentLevel, newLevel : TLevel ;
    Base : TFrmBase ;
+   SecondTrace: string;
    //p : integer ;
    //NodeCache: TNodeArray;                  // hold temporarily a bunch of node refs.
    //StartNode, LastNode : PVirtualNode;
+
+   procedure ParseSecondTrace;
+   var
+     P: Integer;
+     S: string;
+   begin
+     SecondTrace := '';
+     if (Length(TempStr) > 2) and (TempStr[1] = '#') then
+     begin
+       S := TempStr;
+       Delete(S, 1, 1);
+       P := Pos('#', S);
+       if P > 1 then
+       begin
+         SecondTrace := Copy(S, 1, P - 1);
+         Delete(S, 1, P);
+         TempStr := S;
+       end;
+     end;
+   end;
 
    //------------------------------------
    function getStr : String ;
@@ -588,8 +609,12 @@ begin
                                            TreeRec.Columns := getTabStrings(pchar(TempStr)) ;
                                            // check if TreeRec.Columns contain more columns than the tree
                                            TraceForm.checkColumns (TreeRec.Columns) ;
-                                        end else begin
-                                           TreeRec.LeftMsg := TempStr ;
+                                        end
+                                        else
+                                        begin
+                                           ParseSecondTrace;
+                                           TreeRec.LeftMsg := TempStr;
+                                           TreeRec.SecondTrace := SecondTrace;
                                         end ;
                                         CurrentMember := TreeRec.Members ;
                                         TraceForm.vstTrace.InvalidateNode(ActiveNode);

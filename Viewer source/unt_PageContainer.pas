@@ -1116,6 +1116,10 @@ begin
      if NewTabSheetPos <> -1 then
         NewDockSheet.PageIndex := NewTabSheetPos ;
 
+     // MOD_RB: Special handling for main trace win
+     if (base is TFrm_Trace) and (base.Caption = 'Traces') then
+       (base as TFrm_Trace).SetupTraceCol;
+
      // force undock if already in other tabsheet.
      if DockCtl.Parent is TTabSheet then begin
         base.Hide ;                              // hide to prevent flickering

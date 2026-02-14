@@ -18,7 +18,9 @@ interface
       unt_base, DebugOptions, Buttons, Unt_linkedList, unt_utility,
       MSXML2_TLB,
       unt_pageContainer, unt_editor, unt_search, vstSort, unt_filter;
+
    {$INCLUDE TraceTool.Inc}
+
    type
       // ---------------------------------------------------------------------------------
       // can't be moved in implementation section because also used by TNodeLinkedList
@@ -37,7 +39,9 @@ interface
          TreeIcon: Smallint; // -1 by default, converted to 24
          Columns: TStringList; // multi columns strings
          FontDetails: TFontDetailArray;
+         SecondTrace: string;
       end;
+
       // ---------------------------------------------------------------------------------
       // detail tree
       PDetailRec = ^TDetailRec;
@@ -134,6 +138,7 @@ interface
          procedure WMStartEditingTrace(var Message: TMessage);
          message WM_STARTEDITING_TRACE;
       protected
+         FHasTraceCol: Boolean;
          procedure AdjustPanelTop; override;
       public
          class procedure InternalTraceFromThread(LeftMsg: string);
@@ -145,6 +150,7 @@ interface
          function ChangeBackgroundColor(const TargetCanvas: TCanvas; const CellRect: TRect; const Column: TColumnIndex; const FontDetails: TFontDetailArray; const selected: boolean): boolean;
          procedure CalculateDump(Member: TMember);
          procedure ResetDump(Member: TMember);
+         procedure SetupTraceCol;
       public
          procedure AddOneLineDetail(Col1, Col2, Col3: String);
          procedure AddToLog(ActiveNode, ParentCompoNode: PVirtualNode);
@@ -239,12 +245,16 @@ interface
          function SearchNext(start: boolean): boolean; override;
          function SearchPrevious(atEnd: boolean): boolean; override;
       end;
+
    var
       Frm_Trace: TFrm_Trace; // main trace form
       Frm_Watches: TFrm_Trace; // main watch form
       FrmInternalTraces: TFrm_Trace; // internal trace form
+
    function CreateWatchForm(ID: AnsiString; name: string): TFrm_Trace;
+
 implementation
+
 uses
    Unt_receiver
    , unt_about
@@ -265,7 +275,9 @@ uses
    , untPrintPreview
    , Preview
    , Vcl.Themes, unt_Utils;
+
    {$R *.dfm}
+
    // ------------------------------------------------------------------------------
    // ------------------------------------------------------------------------------
    // ------------------------------------------------------------------------------
@@ -316,6 +328,7 @@ uses
       res: TPlugResource;
    begin
       inherited;
+      FHasTraceCol := False;
       IsDateTimeResized := false;
       IsWatch := false;
       vst := vstTrace;
@@ -620,12 +633,15 @@ uses
             col.Width := 100;
          end;
          vstTrace.Header.MainColumn := 0; // FixedColCount-1 ;
-         vstTrace.Header.AutoSizeIndex := -1; // auto
-         // resize all columns, using the header text and all lines
-         AutosizeAll(vstTrace); // VstTail.Header.AutoFitColumns(false);
-         // force last column width to maximum
-         vstTrace.Header.Columns[vstTrace.Header.Columns.Count - 1].Width :=
-            9000;
+         if not FHasTraceCol then
+         begin
+           vstTrace.Header.AutoSizeIndex := -1; // auto
+           // resize all columns, using the header text and all lines
+           AutosizeAll(vstTrace); // VstTail.Header.AutoFitColumns(false);
+           // force last column width to maximum
+           vstTrace.Header.Columns[vstTrace.Header.Columns.Count - 1].Width :=
+              9000;
+         end;
       end;
    end;
    // ------------------------------------------------------------------------------
@@ -652,11 +668,14 @@ uses
          vstTrace.Header.MainColumn := MainCol
       else
          vstTrace.Header.MainColumn := 0; // FixedColCount-1 ;
-      vstTrace.Header.AutoSizeIndex := -1; // auto
-      // resize all columns, using the header text and all lines
-      AutosizeAll(vstTrace); // VstTail.Header.AutoFitColumns(false);
-      // force last column width to maximum
-      vstTrace.Header.Columns[vstTrace.Header.Columns.Count - 1].Width := 9000;
+      if not FHasTraceCol then
+      begin
+        vstTrace.Header.AutoSizeIndex := -1; // auto
+        // resize all columns, using the header text and all lines
+        AutosizeAll(vstTrace); // VstTail.Header.AutoFitColumns(false);
+        // force last column width to maximum
+        vstTrace.Header.Columns[vstTrace.Header.Columns.Count - 1].Width := 9000;
+      end;
       Titles.Free;
    end;
    // ------------------------------------------------------------------------------
@@ -903,6 +922,9 @@ uses
                      else
                        CellText := TreeRec.RightMsg;
                    end;
+               end;
+            5: begin
+                 CellText := TreeRec.SecondTrace;
                end;
             998: // used only by the filter : return the info
                begin
@@ -3477,7 +3499,22 @@ end;
          // ...
       end;
    end;
-   // ------------------------------------------------------------------------------
+   procedure TFrm_Trace.SetupTraceCol;
+begin
+  if Self.Caption = 'Traces' then
+  begin
+    FHasTraceCol := True;
+    vstTrace.Header.Columns[4].MinWidth := 100;
+    vstTrace.Header.Columns[4].Width    := 200;
+    vstTrace.Header.AutoSizeIndex := 4;
+    vstTrace.Header.Columns[5].Options := vstTrace.Header.Columns[5].Options
+      + [coVisible];
+    vstTrace.Header.Columns[5].Width := 120;
+    vstTrace.Header.options := vstTrace.Header.options + [hoAutoResize];
+  end;
+end;
+
+// ------------------------------------------------------------------------------
    // disable tracetool resources
    procedure TFrm_Trace.DisableResource(ResId: Integer);
    begin
@@ -4134,6 +4171,9 @@ end;
       end;
       // then check for special font name, size and color
       Result := false;
+      if TraceConfig.AppDisplay_DarkTheme and selected then
+         TargetCanvas.Font.Color := clYellow;
+
       for c := 0 to length(FontDetails) - 1 do begin
          FontDetail := FontDetails[c];
          if (FontDetail.ColId = Column) or (FontDetail.ColId = -1) then begin

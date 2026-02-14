@@ -132,6 +132,12 @@ object Frm_Trace: TFrm_Trace
             Position = 4
             Text = 'Comment'
             Width = 3000
+          end
+          item
+            Options = [coAllowClick, coDraggable, coEnabled, coParentBidiMode, coParentColor, coResizable, coShowDropMark, coAllowFocus, coEditable, coStyleColor]
+            Position = 5
+            Text = 'TraceWin'
+            Width = 10
           end>
       end
       object PanelGutter: TPanel
