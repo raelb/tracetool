@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, System.Generics.Collections,
-  Vcl.StdCtrls, Vcl.Mask, RzEdit, RzSpnEdt, RxPlacemnt;
+  Vcl.StdCtrls, Vcl.Mask, RzEdit, RzSpnEdt, RxPlacemnt, TraceTool;
 
 type
   TPerson = class;
@@ -32,6 +32,7 @@ type
   private
     FList: TObjectList<TPerson>;
     procedure AddObjects(Value: Integer);
+    procedure SendTestTraces;
     procedure SendTraces;
     { Private declarations }
   public
@@ -53,11 +54,12 @@ type
 
 var
   Form1: TForm1;
+  TestTrace: IWinTrace;
 
 implementation
 
 uses
-  TraceTool, REST.Json, System.JSON;
+  REST.Json, System.JSON;
 
 {$R *.dfm}
 
@@ -228,9 +230,42 @@ begin
   OutputDebugString(PChar('Hello world.'));
   FList := TObjectList<TPerson>.Create;
   FormStorage1.IniFileName := ExtractFilePath(Application.ExeName) + 'layout.ini';
+
+  MainTrace.Send('Hello to Main');
+  TestTrace.Send('Hello to TestTrace');
+
+  SendTestTraces;
+end;
+
+procedure TForm1.SendTestTraces;
+var
+  StrList: TStringList;
+begin
+  MainTrace.EnterMethod('SendTestTraces');
+  StrList := TStringList.Create;
+  try
+    StrList.Add('One');
+    StrList.Add('Two');
+    TestTrace.SendStrings('StrList', StrList);
+  finally
+    StrList.Free;
+  end;
+
+  TestTrace.Send('Message to TestTrace').SetColor(clInfoBk);
+  TestTrace.EnterMethod('My method');
+  TestTrace.Send('Simple trace');
+  TestTrace.ExitMethod();
+
+  MainTrace.ExitMethod();
 end;
 
 initialization
   TTrace.ClearAll;
+
+  TestTrace := TTrace.CreateWinTrace('TestTrace', 'TestTrace');
+  TestTrace.Debug.Enabled;
+  TestTrace.ClearAll;
+
+  RouteToMain := True;
 
 end.
