@@ -1,20 +1,32 @@
-///  TraceTool Delphi API.                                                                                 <p>
-///                                                                                                        <p>
-///  Author : Thierry Parent                                                                               <p>
-///  Version : 12.5                                                                                        <p>
-///  See License.txt for license information                                                               <p>
-///                                                                                                        <p>
-///  Optional stack traces can be done using the provided StackTrace unit that use jedi code source,       <p>
-///  See http://www.delphi-jedi.org then go to "JCL Code Library" Or http://sourceforge.net/projects/jcl/  <p>
-///                                                                                                        <p>
-///  Optional Socket mode can be done using the provided SocketTrace unt that use Indy component.          <p>
-///  If you use another socket library, you have to create a TSocketTrace descendant class                 <p>
+///  TraceTool Delphi API.
+///
+///  Author : Thierry Parent
+///  Version : 12.9
+///  See License.txt for license information
+///
+///  Optional stack traces can be done using the provided StackTrace unit that use jedi code source,
+///  See http://www.delphi-jedi.org then go to "JCL Code Library" Or http://sourceforge.net/projects/jcl/
+///
+///  Optional Socket mode can be done using the provided SocketTrace unt that use Indy component.
+///  If you use another socket library, you have to create a TSocketTrace descendant class
+//   The TDynArray class comes from the freeware Synopse mORMot framework at https://github.com/synopse/mORMot
+
+// history :
+// 12.6 : 2015/05/13 : remove deprecated warning on HtmlEncode
+// 12.7 : 2015/10/18 : EnterMethod and Indent return the node
+// 12.7 : 2015/11/08 : Add AppendStack
+// 12.7 : 2015/11/15 : Add SendStack overload with right and left msg.
+// 12.7 : 2015/11/15 : Add IndentWithStack
+// 12.7 : 2016/01/14 : Add TTrace.IsLive
+// 12.8 : 2016/12/28 : Add support for properties arrays 
+// 12.8 : 2017/03/16 : Add 'Unknow' in tt_GetVarValue
+// 12.9 : 2020/08/03 : Add support to 10.4 Sydney
 
 unit TraceTool;
 
 interface           
 
-{$Include TraceTool.Inc}      
+{$Include TraceTool.Inc}
 
 uses Classes , windows, ActiveX , sysutils, Registry , Messages, Vcl.Forms, //Dialogs,
      comobj , Vcl.AxCtrls , SyncObjs , Contnrs, Vcl.Graphics , TypInfo,
@@ -68,6 +80,7 @@ type
 
    public
       class procedure SendToClient (CommandList : TStringList) ; overload ;   // SendToClient is now public to allow transfert commands 
+      class function IsLive() : boolean ;
 
    public
 
@@ -135,9 +148,15 @@ type
       class function  CreateWinWatch (const WinWatchID : string ; const WinWatchText : string = '') : IWinWatch ;
 
       /// Create a TraceNodeEx from a ITraceToSend parent node
-      /// <param name="ParentNode">Parent node</param>
+      /// <param name="ParentNode">Parent node (can be nil)</param>
       /// <returns>a new ItraceNodeEx</returns>
       class function  CreateNodeEx   (ParentNode : ITraceToSend) : ItraceNodeEx ;
+
+      /// Re create a TraceNode from using his Id
+      /// <param name="ParentNode">Parent node (can be nil)</param>
+      /// <param name="NodeId">Node Id</param>
+      /// <returns>a new ItraceNode</returns>
+      class function  CreateNodeFromId   (ParentNode: ITraceToSend;NodeId : string) : ItraceNode ;
 
       /// create a Trace table
       /// <returns>a new ITraceTable</returns>
@@ -495,11 +514,17 @@ type
    TEnumerableTObject = class(TEnumerable<tObject>);
    {$endif COMPILER_12_UP}
 
+   TDefaultSetting = (dsFollowDefault, dsTrue, dsFalse);
+
    /// ITraceToSend methodes create new traces and send it to the viewer.<p>
    /// Common interface for ITraceNode and IWinTrace.<p>
    /// TTrace.warning, debug and error are ITraceNode
    ITraceToSend = interface (ITraceNodeBase)
    ['{FD1BD5BD-DABC-4F51-B798-B91361621CBF}']
+
+      procedure setRouteToMain(const ds: TDefaultSetting);
+      function  getRouteToMain: TDefaultSetting;
+      property RouteToMain: TDefaultSetting read getRouteToMain write setRouteToMain;
 
       { send a trace (one string)
         <param name="leftMsg">The message to display in the 'traces'
@@ -623,7 +648,8 @@ type
       /// <param name="leftMsg">the message to display</param>
       /// <param name="level">Number of call to skip</param>
       /// <returns>the new node</returns>
-      function  SendStack (const leftMsg: string; const level: integer = 0): ITraceNode ;
+      function  SendStack (const leftMsg: string; const level: integer = 0): ITraceNode ; overload ;
+      function  SendStack (const leftMsg: string; const rightMsg:string; const level: integer = 0): ITraceNode ;  overload ;
 
       /// send a trace with Caller information. Need StackTrace unit
       /// <param name="leftMsg">the message to display</param>
@@ -710,7 +736,7 @@ type
       /// <param name="rightMsg">the right message to display</param>
       /// <param name="BackGroundColor">background color message</param>
       /// <returns>the new node</returns>
-      procedure EnterMethod (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack) ;
+      function EnterMethod (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack) : ITraceNode;
 
       /// Unindent then send a trace with an "exit" icon
       /// <param name="leftMsg">Left message to send</param>
@@ -725,7 +751,8 @@ type
       /// <param name="BackGroundColor">BackGround Color</param>
       /// <param name="IsEnter">if true , a special "enter" icon is added on the node</param>
       /// <returns>the new node</returns>
-      procedure Indent (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false) ;
+      function Indent (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false) : ITraceNode;
+      function IndentWithStack (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false) : ITraceNode;
 
       /// send a trace then unindent
       /// <param name="leftMsg">Message to send to close indentation (optional)</param>
@@ -788,6 +815,10 @@ type
       /// <param name="RightMsg">right message</param>
       /// <returns>itself</returns>
       function  AppendRight (const RightMsg : string) : ITraceNode ;
+
+      /// ReSend the node with the stack to the viewer
+      /// <returns>itself</returns>
+      function  AppendStack     () : ITraceNode;
 
       /// Show the node in the tree (not means selected, just visible in the tree)
       /// <returns>itself</returns>
@@ -1254,13 +1285,441 @@ var
    SendStackProc     : TSendStackProc  ;
    SendCallerProc    : TSendCallerProc ;
    SendMethodProc    : TSendMethodProc ;
+
    MainTrace: ITraceToSend;
+   _RouteToMain: Boolean = False;
+
+const
+   LEFT_BR = '#';
+   RIGHT_BR = '#';
 
 implementation
 
-//{$ifdef DELPHI_6_UP}
-uses variants;
-//{$endif}    // add variant for delphi 6 and upper
+uses Variants;
+
+type
+
+///////////////// begin SynCommons /////////////////////////////
+
+/// a CPU-dependent unsigned integer type cast of a pointer / register
+// - used for 64 bits compatibility, native under Free Pascal Compiler
+{$if CompilerVersion = 20} // DELPHI 2009
+  PtrUInt = cardinal; { see http://synopse.info/forum/viewtopic.php?id=136 }
+{$else}
+  {$ifdef UNICODE}
+  PtrUInt = NativeUInt;
+  {$else}
+  PtrUInt = cardinal;
+  {$endif}
+{$ifend}
+
+/// a CPU-dependent unsigned integer type cast of a pointer of pointer
+// - used for 64 bits compatibility, native under Free Pascal Compiler
+PPtrUInt = ^PtrUInt;
+
+/// a CPU-dependent signed integer type cast of a pointer / register
+// - used for 64 bits compatibility, native under Free Pascal Compiler
+{$if CompilerVersion = 20} // DELPHI 2009
+  PtrInt = integer;
+{$else}
+  {$ifdef UNICODE}
+  PtrInt = NativeInt;
+  {$else}
+  PtrInt = integer;
+  {$endif}
+{$ifend}
+
+/// a CPU-dependent signed integer type cast of a pointer of pointer
+// - used for 64 bits compatibility, native under Free Pascal Compiler
+PPtrInt = ^PtrInt;
+
+{$ifndef CONDITIONALEXPRESSIONS}
+// missing definitions prior to delphi 7
+
+const
+  varShortInt = $0010;
+  varInt64 = $0014;
+
+type
+  UInt64 = Int64;
+  PPointer = ^Pointer;
+  PPAnsiChar = ^PAnsiChar;
+  PInteger = ^Integer;
+  PCardinal = ^Cardinal;
+  PWord = ^Word;
+  PByte = ^Byte;
+  PBoolean = ^Boolean;
+  PComp = ^Comp;
+  THandle = LongWord;
+  PVarData = ^TVarData;
+  TVarData = packed record
+    // mostly used for varNull, varInt64, varDouble, varString and varAny
+    VType: word;
+    case Integer of
+      0: (Reserved1: Word;
+          case Integer of
+            0: (Reserved2, Reserved3: Word;
+                case Integer of
+                  varSmallInt: (VSmallInt: SmallInt);
+                  varInteger:  (VInteger: Integer);
+                  varSingle:   (VSingle: Single);
+                  varDouble:   (VDouble: Double);     // DOUBLE
+                  varCurrency: (VCurrency: Currency);
+                  varDate:     (VDate: TDateTime);
+                  varOleStr:   (VOleStr: PWideChar);
+                  varDispatch: (VDispatch: Pointer);
+                  varError:    (VError: HRESULT);
+                  varBoolean:  (VBoolean: WordBool);
+                  varUnknown:  (VUnknown: Pointer);
+                  varByte:     (VByte: Byte);
+                  varInt64:    (VInt64: Int64);      // INTEGER
+                  varString:   (VString: Pointer);   // TEXT
+                  varAny:      (VAny: Pointer);
+                  varArray:    (VArray: PVarArray);
+                  varByRef:    (VPointer: Pointer);
+               );
+            1: (VLongs: array[0..2] of LongInt); );
+  end;
+{$endif}
+
+type
+  /// a wrapper around a dynamic array with one dimension
+  /// http://synopse.info/fossil/wiki/Synopse+OpenSource
+  TDynArray = record
+  private
+    fValue: PPointer;
+    fTypeInfo: pointer;
+    fElemSize: PtrUInt;
+    fElemType: pointer;
+    fCountP: PInteger;
+    fKnownSize: integer;
+    function GetCount: integer; inline;
+    function GetArrayTypeName: AnsiString;
+    /// will set fKnownType and fKnownOffset/fKnownSize fields
+  public
+    /// initialize the wrapper with a one-dimension dynamic array
+    procedure Init(aTypeInfo: pointer; var aValue; aCountPointer: PInteger=nil);
+    /// returns a pointer to an element of the array
+    function ElemPtr(aIndex: integer): pointer;
+    /// retrieve or set the number of elements of the dynamic array
+    property Count: integer read GetCount ;
+    /// low-level direct access to the storage variable
+    property Value: PPointer read fValue;
+    /// the known RTTI information of the whole array
+    property ArrayType: pointer read fTypeInfo;
+    /// the known type name of the whole array
+    property ArrayTypeName: AnsiString read GetArrayTypeName;
+    /// the internal in-memory size of one element, as retrieved from RTTI
+    property ElemSize: PtrUInt read fElemSize;
+    /// the internal type information of one element, as retrieved from RTTI
+    property ElemType: pointer read fElemType;
+  end;
+
+type
+  /// available type families for Delphi 6 and up, similar to typinfo.pas
+  SC_TTypeKind = (tk_SC_Unknown, tk_SC_Integer, tk_SC_Char, tk_SC_Enumeration, tk_SC_Float,
+    tk_SC_String, tk_SC_Set, tk_SC_Class, tk_SC_Method, tk_SC_WChar, tk_SC_LString, tk_SC_WString,
+    tk_SC_Variant, tk_SC_Array, tk_SC_Record, tk_SC_Interface, tk_SC_Int64, tk_SC_DynArray
+    {$ifdef UNICODE}, tk_SC_UString, tk_SC_ClassRef, tk_SC_Pointer, tk_SC_Procedure{$endif});
+
+const
+  // maps record or object types
+  tkRecordTypes = [tk_SC_Record];
+  tkRecordTypeOrSet = tk_SC_Record;
+
+
+type
+  T_SC_OrdType = (otSByte,otUByte,otSWord,otUWord,otSLong,otULong);
+  T_SC_FloatType = (ftSingle,ftDoub,ftExtended,ftComp,ftCurr);
+  T_SC_TypeKinds = set of SC_TTypeKind;
+  P_SC_TypeKind = ^SC_TTypeKind;
+
+  P_SC_StrRec = ^T_SC_StrRec;
+  /// map the Delphi string header, as defined in System.pas
+  T_SC_StrRec = record
+  {$ifdef UNICODE}
+    {$ifdef CPU64}
+    /// padding bytes for 16 byte alignment of the header
+    _Padding: LongInt;
+    {$endif}
+    /// the associated code page used for this string
+    // - exist only since Delphi 2009
+    // - 0 or 65535 for RawByteString
+    // - 1200=CP_UTF16 for UnicodeString
+    // - 65001=CP_UTF8 for RawUTF8
+    // - the current code page for AnsiString
+    codePage: Word;
+    /// either 1 (for AnsiString) or 2 (for UnicodeString)
+    // - exist only since Delphi 2009
+    elemSize: Word;
+  {$endif UNICODE}
+    /// COW string reference count (basic garbage memory mechanism)
+    refCnt: Longint;
+    /// length in characters
+    // - size in bytes = length*elemSize
+    length: Longint;
+  end;
+
+  /// map the Delphi dynamic array header (stored before each instance)
+  T_SC_DynArrayRec = packed record
+    /// dynamic array reference count (basic garbage memory mechanism)
+    {$ifdef CPUX64}
+    _Padding: LongInt; // Delphi XE2+ expects 16 byte alignment
+    {$endif}
+    refCnt: Longint;
+    /// length in element count
+    // - size in bytes = length*ElemSize
+    length: PtrInt;
+  end;
+  P_SC_DynArrayRec = ^T_SC_DynArrayRec;
+
+  P_SC_TypeInfo = ^T_SC_TypeInfo;
+  P_SC_TypeInfoStored = ^P_SC_TypeInfo;
+
+  /// map the Delphi record field RTTI
+  T_SC_FieldInfo =  record
+    TypeInfo: P_SC_TypeInfoStored;
+    Offset: PtrUInt;
+  end;
+  {$if CompilerVersion >= 21.0}  // DELPHI 2010
+  /// map the Delphi record field enhanced RTTI (available since Delphi 2010)
+  T_SC_EnhancedFieldInfo = packed record
+    TypeInfo: P_SC_TypeInfoStored;
+    Offset: PtrUInt;
+    Flags: Byte;
+    NameLen: byte; // = Name[0] = length(Name)
+  end;
+  P_SC_EnhancedFieldInfo = ^T_SC_EnhancedFieldInfo;
+  {$ifend}
+
+  T_SC_TypeInfo = packed record
+    kind: SC_TTypeKind;
+    NameLen: byte;
+    case SC_TTypeKind of
+    tk_SC_Unknown: (
+      NameFirst: AnsiChar;
+    );
+    tk_SC_DynArray: (
+      // storage byte count for this field
+      elSize: Longint;
+      // nil for unmanaged field
+      elType: P_SC_TypeInfoStored;
+      // OleAuto compatible type
+      varType: Integer;
+      // also unmanaged field
+      elType2: P_SC_TypeInfoStored;
+    );
+    tk_SC_Array: (
+      arraySize: Integer;
+      // product of lengths of all dimensions
+      elCount: Integer;
+      arrayType: P_SC_TypeInfoStored;
+      dimCount: Byte;
+      dims: array[0..255 {DimCount-1}] of P_SC_TypeInfoStored;
+    );
+    tk_SC_Record: (
+      recSize: cardinal;
+      ManagedCount: integer;
+      ManagedFields: array[0..0] of T_SC_FieldInfo;
+      {$if CompilerVersion >= 21.0} // DELPHI 2010 // enhanced RTTI containing info about all fields
+      NumOps: Byte;
+      AllCount: Integer;
+      AllFields: array[0..0] of T_SC_EnhancedFieldInfo;
+      {$ifend}
+    );
+    tk_SC_Enumeration: (
+      EnumType: T_SC_OrdType;
+      MinValue: longint;
+      MaxValue: longint;
+      EnumBaseType: P_SC_TypeInfoStored;
+      NameList: string[255];
+    );
+    tk_SC_Integer: (
+      IntegerType: T_SC_OrdType;
+    );
+    tk_SC_Set: (
+      SetType: T_SC_OrdType;
+      SetBaseType: P_SC_TypeInfoStored;
+    );
+    tk_SC_Float: (
+      FloatType: T_SC_FloatType;
+    );
+    tk_SC_Class: (
+      ClassType: PAnsiChar; // TClass;
+      ParentInfo: P_SC_TypeInfoStored;
+      PropCount: SmallInt;
+      UnitNameLen: byte;
+    );
+  end;
+  T_SC_PropInfo = packed record
+    PropType: P_SC_TypeInfoStored;
+    GetProc: PtrInt;
+    SetProc: PtrInt;
+    StoredProc: PtrInt;
+    Index: Integer;
+    Default: Longint;
+    NameIndex: SmallInt;
+    NameLen: byte;
+  end;
+  P_SC_PropInfo = ^T_SC_PropInfo;
+
+const
+  /// codePage offset = string header size
+  // - used to calc the beginning of memory allocation of a string
+  SC_STRRECSIZE = SizeOf(T_SC_StrRec);
+
+function SC_ValidateObj(Obj: TObject): boolean;
+type
+  PPVmt = ^PVmt;
+  PVmt = ^TVmt;
+  TVmt = record
+    SelfPtr : TClass;
+    Other   : array[0..17] of pointer;
+  end;
+var
+  Vmt: PVmt;
+begin
+  Result := true;
+  if Assigned(Obj) then
+    try
+      // if debugger stop here, ignore and continue
+      Vmt := PVmt(Obj.ClassType);
+      Dec(Vmt);
+      if Obj.ClassType <> Vmt.SelfPtr then
+        Result := false;
+    except
+      Result := false;
+    end;
+end;
+
+//function SC_IsInstance(Data: Pointer): Boolean;
+//var
+//   VMT: Pointer;
+//begin
+//  Result := Assigned(Obj) and
+//            ValidPtr(PClass(Obj), SizeOf(TClass)) and
+//            ValidClassType(Obj.ClassType) and
+//            ValidPtr(Pointer(Obj), Obj.InstanceSize);
+//
+//
+//   if data = nil then begin
+//      result := false ;
+//   end else begin
+//      try
+//         // if debugger stop here, ignore and continue
+//         VMT := PPointer(Data)^;
+//         Result := PPointer(PByte(VMT) + vmtSelfPtr)^ = VMT;
+//      except
+//         on e : EAccessViolation do begin // eat exception. Element is not a class instance.
+//            Result := false ;
+//         end;
+//      end;
+//   end ;
+//end;
+
+
+function SC_GetTypeInfo(aTypeInfo: pointer; aExpectedKind: SC_TTypeKind): P_SC_TypeInfo; overload; inline;
+begin
+  if (aTypeInfo<>nil) and (P_SC_TypeKind(aTypeInfo)^=aExpectedKind) then begin
+    result := aTypeInfo;
+    inc(PtrUInt(result),result^.NameLen);
+  end else
+    result := nil;
+end;
+
+function SC_GetTypeInfo(aTypeInfo: pointer; const aExpectedKind: T_SC_TypeKinds): P_SC_TypeInfo; overload; inline;
+begin
+  result := aTypeInfo;
+  if (result<>nil) and (result^.Kind in aExpectedKind) then
+    inc(PtrUInt(result),result^.NameLen)
+  else
+    result := nil;
+end;
+
+procedure SC_SetRawUTF8(var Dest: AnsiString; text: pointer; len: integer);
+var P: P_SC_StrRec;
+begin
+  if (len>128) or (len=0) or (PtrInt(Dest)=0) or
+    (P_SC_StrRec(PtrInt(Dest)-SC_STRRECSIZE)^.refCnt<>1) then
+    SetString(Dest,PAnsiChar(text),len)
+  else begin
+    if P_SC_StrRec(Pointer(PtrInt(Dest)-SC_STRRECSIZE))^.length<>len then begin
+      P := Pointer(PtrInt(Dest)-SC_STRRECSIZE);
+      ReallocMem(P,len+(SC_STRRECSIZE+1));
+      P^.length := len;
+      pointer(Dest) := pointer(PAnsiChar(P)+SC_STRRECSIZE);
+      PByteArray(Dest)[len] := 0;
+    end;
+    System.Move(pointer(text)^,pointer(Dest)^,len);
+  end;
+end;
+
+/// retrieve the type name from its low-level RTTI
+procedure SC_TypeInfoToName(aTypeInfo: pointer; var result: AnsiString;  const default: AnsiString='');
+begin
+  if aTypeInfo<>nil then
+    SC_SetRawUTF8(result,PAnsiChar(@P_SC_TypeInfo(aTypeInfo)^.NameLen)+1,  P_SC_TypeInfo(aTypeInfo)^.NameLen)
+  else
+    result := default;
+end;
+
+procedure TDynArray.Init(aTypeInfo: pointer; var aValue; aCountPointer: PInteger=nil);
+begin
+  fValue := @aValue;
+  fTypeInfo := aTypeInfo;
+  if P_SC_TypeKind(aTypeInfo)^<>tk_SC_DynArray then // inlined GetTypeInfo()
+    raise Exception.Create('TDynArray.Init('+String( PShortString(@P_SC_TypeInfo(aTypeInfo)^.NameLen)^)+'): not a dynamic array');
+  inc(PtrUInt(aTypeInfo),P_SC_TypeInfo(aTypeInfo)^.NameLen);
+  fElemSize := P_SC_TypeInfo(aTypeInfo)^.elSize ;
+  fElemType := P_SC_TypeInfo(aTypeInfo)^.elType;
+  if fElemType<>nil then begin
+     fElemType := PPointer(fElemType)^;
+  end;
+  fCountP := aCountPointer;
+  if fCountP<>nil then
+    fCountP^ := 0;
+  fKnownSize := 0;
+end;
+
+function TDynArray.GetArrayTypeName: AnsiString;
+begin
+  SC_TypeInfoToName(fTypeInfo,result);
+end;
+
+function TDynArray.ElemPtr(aIndex: integer): pointer;
+begin
+  result := nil;
+  if (fValue=nil) or (fValue^=nil) then
+    exit;
+  if fCountP<>nil then begin
+    if cardinal(aIndex)>=PCardinal(fCountP)^ then
+      exit;
+  end else
+    if cardinal(aIndex)>=PCardinal(PtrUInt(fValue^)-sizeof(PtrInt))^ then
+      exit;
+  result := pointer(PtrUInt(fValue^)+PtrUInt(aIndex)*ElemSize);
+end;
+
+function TDynArray.GetCount: integer;
+begin
+  if fValue<>nil then
+    if fCountP=nil then
+      if PtrInt(fValue^)<>0 then begin
+        result := PInteger(PtrUInt(fValue^)-sizeof(PtrInt))^;
+        exit;
+      end else begin
+        result := 0;
+        exit;
+      end else begin
+      result := fCountP^;
+      exit;
+    end else begin
+    result := 0; // avoid GPF if void
+    exit;
+  end;
+end;
+
+///////////////// end SynCommons /////////////////////////////
 
 type
 
@@ -1400,6 +1859,8 @@ type
       fListCriticalSection : TCriticalSection ;
       fTime : TDateTime ;
       fThreadName : string ;
+      fDupeNode: ITraceNode;
+      fRouteToMain: TDefaultSetting;
 
       // TOject reflection functions
       function  GetPropertyTypeString (const TypeKind: TTypeKind): String;
@@ -1413,6 +1874,7 @@ type
       function  getLastContext  : TNodeContext ;
       procedure PushContext (NewContext: TNodeContext);
       procedure deleteLastContext ;
+      function IsRouteToMain: Boolean;
    public
 
       constructor create (const ParentNode : TTraceNode ; const generateUniqueId : boolean ) ; overload ;
@@ -1442,13 +1904,15 @@ type
       procedure setTag (const v : integer) ;
       property Tag : integer read getTag write setTag ;
 
-
       // create a new TraceNodeEx node with the current instance as parent.
       function CreateNodeEx : ITraceNodeEx ;
 
       // ITraceNode
       //--------------------------------------------
 
+      // RouteToMain setting
+      procedure setRouteToMain(const ds: TDefaultSetting);
+      function  getRouteToMain: TDefaultSetting;
 
       // Send functions
       function  Send        (const lMsg : string) : ITraceNode ; Overload ;
@@ -1474,7 +1938,8 @@ type
       function  SendValue   (const leftMsg: string; const Obj : TObject; const ObjTitle:string = 'Object ' ): ITraceNode; overload ;
       function  SendDump    (const leftMsg, Title: string; const memory: pointer; const ByteCount: integer) : ITraceNode ;
       function  SendStrings (const leftMsg: string; const strings: TStrings) : ITraceNode ;
-      function  SendStack   (const leftMsg: string; const level: integer = 0) : ITraceNode ;
+      function  SendStack   (const leftMsg: string; const level: integer = 0) : ITraceNode ; overload ;
+      function  SendStack   (const leftMsg: string; const rightMsg:string; const level: integer = 0): ITraceNode ;  overload ;
       function  SendCaller  (const leftMsg: string; const level: integer = 0) : ITraceNode ;
       function  SendMethod  (const leftMsg: string; const Meth: Pointer) : ITraceNode;
 
@@ -1496,10 +1961,11 @@ type
       function  SendBackgroundColor (const leftMsg: string; const Color: integer; const ColId: integer = -1): ITraceNode ;
       function  SetColor(Color: TColor): ITraceNode;
 
-      procedure EnterMethod (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack) ;
+      function EnterMethod (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack) : ITraceNode;
       Procedure ExitMethod  (const leftMsg : string = '' ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack);
 
-      procedure Indent   (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack; const IsEnter:boolean=false) ;
+      function Indent   (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack; const IsEnter:boolean=false) : ITraceNode;
+      function IndentWithStack   (const leftMsg : string ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack; const IsEnter:boolean=false) : ITraceNode;
       procedure UnIndent (const leftMsg : string = '' ; const rightMsg : string = ''; const BackGroundColor: TColor = clBlack; const IsExit:boolean=false) ;
       function  GetIndentLevel: integer;
       property  IndentLevel: integer read GetIndentLevel ;
@@ -1512,6 +1978,7 @@ type
       function  ResendLeft      (const leftMsg: string) : ITraceNode;
       function  ResendRight     (const RightMsg: string) : ITraceNode;
       function  ResendIconIndex (const index : integer) : ITraceNode;
+      function  AppendStack     () : ITraceNode;
       function  Append          (const leftMsg, RightMsg: string) : ITraceNode; Overload ;
       function  AppendLeft      (const leftMsg : string) : ITraceNode ;
       function  AppendRight     (const RightMsg : string) : ITraceNode ;
@@ -1684,6 +2151,7 @@ var
    ClosedEvent  : THandle ;     // signal that the thread is terminated
    CloseEvent   : THandle ;     // Handle to close the thread.
    MessageReady : THandle ;     // signal that messages are ready to be send
+   MsgThreadInLoop : Boolean ;
 
    pushedMessageCount : integer ;
    sendMessageCount : integer ;
@@ -2221,6 +2689,7 @@ end ;
 
 //------------------------------------------------------------------------------
 
+{$WARN SYMBOL_DEPRECATED OFF}
 // Html encoding : convert special chars to &#nnn;
 // differ from delphi HttApp unit implementation (fusion of HTTPEncode and HTMLEncode)
 function HtmlEncode(const AStr: String): String;
@@ -2267,6 +2736,8 @@ begin
   end;
   SetLength(Result, Rp - PChar(Result));
 end;
+
+{$WARN SYMBOL_DEPRECATED DEFAULT}
 
 //------------------------------------------------------------------------------
 
@@ -2732,6 +3203,17 @@ end;
 
 //------------------------------------------------------------------------------
 
+class function TTrace.CreateNodeFromId (ParentNode: ITraceToSend;NodeId : string) : ItraceNode ;
+var
+   node : TTraceNode ;
+begin
+   node := TTraceNode.create (ParentNode,false);
+   node.id := NodeId ;
+   result := node ;
+end;
+
+//------------------------------------------------------------------------------
+
 class function TTrace.createWinWatch(const WinWatchID, WinWatchText: string): IWinWatch;
 begin
    result := TWinWatch.create (WinWatchID, WinWatchText) ;
@@ -2991,6 +3473,17 @@ begin
          result := -111 ;
       end ;
    end ;
+end;
+
+//------------------------------------------------------------------------------
+class function TTrace.IsLive: boolean;
+
+
+begin
+   if (MsgThread = nil) or (MsgThreadInLoop = False) then
+      result := false
+   else
+      result := true ;
 end;
 
 //------------------------------------------------------------------------------
@@ -3325,6 +3818,10 @@ begin
    result := node ;
    CommandList := prepareNewNode (lMsg2 , node.Id) ;  // will be freed by the thread
 
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + lMsg);
+
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
 
@@ -3353,6 +3850,10 @@ begin
    CommandList := prepareNewNode (leftMsg2, node.Id) ;  // will be freed by the thread
    if rightMsg2 <> '' then
       addCommand (CommandList, CST_RIGHT_MSG,rightMsg2);    // param : right string
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.Send(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, rightMsg);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3534,6 +4035,10 @@ begin
 
    node.AddStrings (strings);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendStrings(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, strings);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3720,6 +4225,38 @@ begin
    if node.fMembers <> nil then
       node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendStack(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, level);
+
+   TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
+end;
+
+// ITraceToSend
+function TTraceNode.SendStack (const leftMsg: string; const rightMsg: string; const level : integer): ITraceNode;
+var
+   node : TTraceNode ;
+   CommandList : TStringList;
+begin
+   if (Enabled = false) then begin
+      result := self ;
+      exit ;
+   end ;
+
+   // create a node with same properties as "self" with new ID
+   node := TTraceNode.create (self, true) ;
+   result := node ;
+   CommandList := prepareNewNode (leftMsg , node.Id) ;  // will be freed by the thread
+   if RightMsg <> '' then
+      addCommand (CommandList, CST_RIGHT_MSG, RightMsg);         // param : right string
+   node.AddStackTrace(level+1);
+   if node.fMembers <> nil then
+      node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendStack(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, rightMsg, level);
+
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
 
@@ -3788,7 +4325,7 @@ begin
    node := TTraceNode.create (self, true) ;
    result := node ;
    CommandList := prepareNewNode (leftMsg , node.Id) ;  // will be freed by the thread
-   addCommand (CommandList, CST_BACKGROUND_COLOR, Color, inttostr(ColId)) ;      // param : color, colId
+   addCommand (CommandList, CST_BACKGROUND_COLOR, Color,inttostr(ColId)) ;      // param : color, colId
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
@@ -3803,6 +4340,9 @@ begin
 
    if id = '' then
       raise exception.create ('Node Id is null, root node cannot be modified (for now)') ;
+
+   if FDupeNode <> nil then
+      FDupeNode.SetColor(Color);
 
    // the node has already been sent in method .Send so we need to
    // attach command to this node
@@ -3863,6 +4403,11 @@ begin
 
    node.AddXML(XML);
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendXml(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, XML);
+
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
 
@@ -3887,6 +4432,10 @@ begin
    node.AddValue (v,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
 
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+         MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, v);
+
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end ;
 
@@ -3910,6 +4459,10 @@ begin
 
    node.AddValue (obj,Objtitle) ;
    node.fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+        MainTrace.SendValue(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, Obj);
 
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end ;
@@ -3954,8 +4507,9 @@ end;
 //------------------------------------------------------------------------------
 
 // ITraceNode
-procedure TTraceNode.Indent (const leftMsg: string ; const RightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false);
+function TTraceNode.Indent (const leftMsg: string ; const RightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false) : ITraceNode;
 var
+   node : TTraceNode ;
    currentThreadId : integer ;
    LastContext , NewContext : TNodeContext ;
    CommandList : TStringList ;
@@ -3970,6 +4524,15 @@ begin
    LastContext := getLastContext () ;
    NewContext.NodeId := TTrace.CreateTraceID ;
    CommandList := TStringList.create ;     // will be freed by the sender thread
+
+   node := TTraceNode.create (self, false) ;
+   node.id := NewContext.NodeId ;
+   result := node ;
+   
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      (result as TTraceNode).FDupeNode :=
+	    MainTrace.Indent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg, RightMsg,
+        BackGroundColor, IsEnter);
 
    if LastContext = nil then begin
       //NewContext.level := 1 ;
@@ -4003,6 +4566,17 @@ end;
 //------------------------------------------------------------------------------
 
 // ITraceNode
+function TTraceNode.IndentWithStack (const leftMsg: string ; const RightMsg : string = ''; const BackGroundColor: TColor = clBlack ; const IsEnter:boolean=false) : ITraceNode;
+begin
+   if (fEnabled = false) then
+      exit ;
+   Result := Indent(leftMsg,RightMsg,BackGroundColor,IsEnter) ;
+   Result.AppendStack() ;
+end;
+
+//------------------------------------------------------------------------------
+
+// ITraceNode
 procedure TTraceNode.UnIndent (const leftMsg : string = '' ; const rightMsg : string = '';const BackGroundColor: TColor = clBlack ; const IsExit:boolean=false);
 var
    CommandList : TStringList;
@@ -4013,6 +4587,10 @@ var
 begin
    if (fEnabled = false) then
       exit ;
+
+   if IsRouteToMain and (Self.WinTraceId <> MainTrace.WinTraceId) then
+      MainTrace.UnIndent(LEFT_BR + WinTraceId + RIGHT_BR + leftMsg,
+         rightMsg, BackGroundColor, IsExit);
 
    deleteLastContext () ;
    if (leftMsg <> '') or (rightMsg <> '') then begin
@@ -4042,9 +4620,9 @@ end;
 //------------------------------------------------------------------------------
 
 // ITraceNode
-procedure TTraceNode.EnterMethod(const leftMsg, rightMsg: string; const BackGroundColor: TColor);
+function TTraceNode.EnterMethod(const leftMsg, rightMsg: string; const BackGroundColor: TColor) : ITraceNode;
 begin
-   Self.Indent('Enter ' + LeftMsg, RightMsg, BackGroundColor, true);
+   Result := Self.Indent('Enter ' + LeftMsg, RightMsg, BackGroundColor, true);
 end;
 
 //------------------------------------------------------------------------------
@@ -4137,6 +4715,30 @@ begin
    TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
 end;
 
+// ITraceNode
+function TTraceNode.AppendStack () : ITraceNode;
+var
+   CommandList : TStringList;
+begin
+   result := self ;
+   if Enabled = false then
+      exit ;
+
+   if id = '' then
+      raise exception.create ('Node Id is null, root node cannot be modified (for now)') ;
+   CommandList := TStringList.create ;  // will be freed by the thread
+
+   addCommand (CommandList, CST_USE_NODE,id);             // param : the node that receive the string
+
+   // the stack trace is performed in the supplied StackTrace unit (use jedi code lib)
+   if assigned (SendStackProc) then
+      SendStackProc (self,1) ;
+
+   if fMembers <> nil then
+      fMembers.AddToStringList (CommandList) ;   // convert all groups and nested items/group to strings
+
+   TTrace.SendToWinTraceClient (CommandList, fWinTraceId);
+end;
 //------------------------------------------------------------------------------
 
 // ITraceNode
@@ -4466,12 +5068,22 @@ begin
    result := fRightMsg ;
 end;
 
+function TTraceNode.getRouteToMain: TDefaultSetting;
+begin
+  Result := FRouteToMain;
+end;
+
 //------------------------------------------------------------------------------
 
 // ITraceNodeEx
 procedure TTraceNode.setRightMsg (const v: string);
 begin
    fRightMsg := v ;
+end;
+
+procedure TTraceNode.setRouteToMain(const ds: TDefaultSetting);
+begin
+  FRouteToMain := ds;
 end;
 
 //------------------------------------------------------------------------------
@@ -4551,7 +5163,7 @@ end ;
 
 //------------------------------------------------------------------------------
 
-// called by addObject
+// called by all addTable flavors
 procedure TTraceNode.innerAddFieldsToTable(TableMembers : TMemberNode ; CurrentRow : TMemberNode ; const AObject: TObject ; isFirstRow,isFirstCol : bool) ;
 var
 
@@ -4603,11 +5215,11 @@ begin
          Prop_Name := String(PropInfo.Name) ;
          Prop_Value := '' ;
 
-         //  TTypeKind = (
-         //   tkInteger, tkString,tkWChar,tkLString, tkWString, tkInt64,
-         //   tkClass,
-         //   tkMethod,
-         //   tkChar, tkEnumeration, tkFloat, tkSet, tkUnknown, tkVariant, tkArray, tkRecord, tkInterface,  tkDynArray, tkUString);
+         //TTypeKind = (tkUnknown, tkInteger, tkChar, tkEnumeration, tkFloat,
+         //  tkString, tkSet, tkClass, tkMethod, tkWChar, tkLString, tkWString,
+         //  tkVariant, tkArray, tkRecord, tkInterface, tkInt64, tkDynArray, tkUString,
+         //  tkClassRef, tkPointer, tkProcedure {, tkMRecord});
+
          case PropInfo^.PropType^.Kind of
             tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64
             {$ifdef DELPHI_16_UP}, tkUString {$endif}:
@@ -5809,7 +6421,61 @@ begin
    end ;
 end;
 
-//------------------------------------------------------------------------------
+//type
+//  TAccessStyle = (asFieldData, asAccessor, asIndexedAccessor);
+//
+////------------------------------------------------------------------------------
+//function GetAccessToProperty(Instance: TObject; PropInfo: PPropInfo;
+//  AccessorProc: Longint; out FieldData: Pointer;
+//  out Accessor: TMethod): TAccessStyle;
+//begin
+//  if (AccessorProc and $FF000000) = $FF000000 then
+//  begin  // field - Getter is the field's offset in the instance data
+//    FieldData := Pointer(Integer(Instance) + (AccessorProc and $00FFFFFF));
+//    Result := asFieldData;
+//  end
+//  else
+//  begin
+//    if (AccessorProc and $FF000000) = $FE000000 then
+//      // virtual method  - Getter is a signed 2 byte integer VMT offset
+//      Accessor.Code := Pointer(PInteger(PInteger(Instance)^ + SmallInt(AccessorProc))^)
+//    else
+//      // static method - Getter is the actual address
+//      Accessor.Code := Pointer(AccessorProc);
+//
+//    Accessor.Data := Instance;
+//    if PropInfo^.Index = Integer($80000000) then  // no index
+//      Result := asAccessor
+//    else
+//      Result := asIndexedAccessor;
+//  end;
+//end;
+//
+//function GetDynArrayProp(Instance: TObject; PropInfo: PPropInfo): Pointer;
+//type
+//  { Need a(ny) dynamic array type to force correct call setup.
+//    (Address of result passed in EDX) }
+//  TDynamicArray = array of Byte;
+//type
+//  TDynArrayGetProc = function: TDynamicArray of object;
+//  TDynArrayIndexedGetProc = function (Index: Integer): TDynamicArray of object;
+//var
+//  M: TMethod;
+//begin
+//  case GetAccessToProperty(Instance, PropInfo, Longint(PropInfo^.GetProc), Result, M) of
+//
+//    asFieldData:
+//      Result := PPointer(Result)^;  // null
+//
+//    asAccessor:
+//      Result := Pointer(TDynArrayGetProc(M)());
+//
+//    asIndexedAccessor:
+//      Result := Pointer(TDynArrayIndexedGetProc(M)(PropInfo^.Index));
+//
+//  end;
+//end;
+
 
 // ITraceNodeEx
 
@@ -5821,22 +6487,34 @@ end;
 
 procedure TTraceNode.inner_addValue (const AObject: TObject; const upperNode : TMemberNode; const MaxLevel : integer; AlreadyParsedObject:TObjectList);
 var
-   obj, subObj : TObject ;
-   I, Count: Integer;
+   subObj : TObject ;
+   I,J,K, PropCount: Integer;
    TypeInfo : PTypeInfo ;
    PropInfo: PPropInfo;
    TempList: PPropList;
    VariantPropValue : variant ;
    strType : String ;
    intPropValue : LongInt ;
-   fieldNode : TMemberNode ;
+   ArrayNode, fieldNode : TMemberNode ;
 
    Prop_Name      : String ;
    Prop_Type      : String ;
    Prop_Value     : string ;
    //Prop_ClassType : String ;
 
+   DynArrayPointer: Pointer;
+   DynArrayObject: TDynArray;
+   DynArrayElementPointer : Pointer ;
+   DynArrayElementValue1 : byte ;
+   DynArrayElementValue2 : word ;
+   DynArrayElementValue4 : {$ifdef DELPHI_16_UP}int32{$else}Integer{$endif} ;     
+   ClassTypeFound : boolean ;
+   
+type
+   PPPTypeInfo = ^PPTypeInfo;
+
 begin
+
    if AObject = nil then begin
       upperNode.Col2 := 'nil' ;
       exit ;
@@ -5863,14 +6541,13 @@ begin
    TypeInfo := PTypeInfo(AObject.ClassInfo) ;
    if TypeInfo = nil then
       exit ;
-   obj := AObject ;
-   Count := GetPropList(typeInfo, TempList);   // if Count is zero , FreeMem(TempList) don't have to be called
-   if Count > 0 then
+   PropCount := GetPropList(typeInfo, TempList);   // if Count is zero , FreeMem(TempList) don't have to be called
+   if PropCount > 0 then
    try
-      for I := 0 to Count - 1 do begin
+      for I := 0 to PropCount - 1 do begin
          PropInfo := TempList^[I];
-
          Prop_Name := String(PropInfo.Name) ;
+		 // Next 3 lines not in original...
          Prop_Type := GetPropertyTypeString (PropInfo^.PropType^.Kind);
          Prop_Value := '' ;
          //Prop_ClassType := '' ;
@@ -5879,33 +6556,116 @@ begin
          //  tkString, tkSet, tkClass, tkMethod, tkWChar, tkLString, tkWString,
          //  tkVariant, tkArray, tkRecord, tkInterface, tkInt64, tkDynArray, tkUString);
          case PropInfo^.PropType^.Kind of
-            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64,tkUString :
+            tkInteger,tkString,tkChar,tkWChar,tkLString,tkWString,tkInt64,{$ifdef DELPHI_16_UP}tkUString,{$endif}tkFloat :
                begin
-                  if obj <> nil then begin
-                     VariantPropValue := GetPropValue(AObject, string(PropInfo.Name),true) ;
-                     Prop_Value := VariantPropValue ;
-                  end ;
-                  upperNode.Add( string(prop_name) , prop_value,  string(prop_type)) ;
+                   VariantPropValue := GetPropValue(AObject, string(PropInfo.Name),true) ;
+                   Prop_Value := VariantPropValue ;
+                   upperNode.Add( string(prop_name) , prop_value) ;   // no type
                end ;
-            tkClass :
+               
+            tkClass  :
                begin
-                  fieldNode := upperNode.Add( string(prop_name)) ;  // col2 (value) and col3 (type) will be added by recursion
-                  intPropValue := GetOrdProp(obj, PropInfo) ;
-                  subObj := TObject (intPropValue);
-                  inner_addValue (subObj ,fieldNode , MaxLevel-1, AlreadyParsedObject);
+                  fieldNode := upperNode.Add( string(prop_name)) ;   // col2 (value) will be added by recursion
+                  intPropValue := GetOrdProp(AObject, PropInfo) ;    // property value can be nil
+                  subObj := TObject (intPropValue);  
+                  inner_addValue (subObj ,fieldNode , MaxLevel-1, AlreadyParsedObject);   // recursion.
                end ;
-            tkMethod : begin  end ;// events
-            tkRecord : ;           // MOD_RB
-            else
-               begin  // enumeration, ...
-                  if obj <> nil then begin
-                     VariantPropValue := GetPropValue(AObject,  string(PropInfo.Name),true) ;
-                     Prop_Value := tt_GetVarValue (VariantPropValue,strType) ;
-                     if PropInfo^.PropType^.Kind = tkVariant then
-                        Prop_Type := Prop_Type + '(' + strType + ')' ;
+            {$ifdef DELPHI_16_UP}
+            tkClassRef, tkPointer, tkProcedure, tkMethod {, tkMRecord} :
+               begin
 
-                  end ;
-                  upperNode.Add(String(prop_name) , prop_value, String(prop_type)) ;
+               end;
+            {$endif}  
+            tkDynArray :   // tkArray
+               begin                                                                 
+                  DynArrayPointer := GetDynArrayProp(AObject, PropInfo);  // from System.TypInfo => GetPropValue where kind = tkDynArray 
+
+                  DynArrayObject.Init(PropInfo^.PropType^,DynArrayPointer) ;     // aTypeInfo: pointer; var aValue; aCountPointer: PInteger=nil);
+                  //TypeInfoName := DynArrayObject.ArrayTypeName ;
+
+                  prop_type := string(DynArrayObject.ArrayTypeName) + ' : ' + GetPropertyTypeString (PropInfo^.PropType^.Kind) + '[' + IntToStr(DynArrayObject.Count) + ']' + ', element size = ' + IntToStr(DynArrayObject.ElemSize) ;
+                  Prop_Value := '@' + inttohex (Integer(DynArrayPointer),2) ; 
+                  subObj := nil ;
+
+                  ArrayNode := upperNode.Add(prop_name , prop_value, prop_type) ; 
+                  
+                  ClassTypeFound := false ;
+                  for j := 0 to DynArrayObject.Count-1 do
+                  begin
+                     DynArrayElementPointer := DynArrayObject.ElemPtr(j) ;
+                     case DynArrayObject.ElemSize of
+                        1 : begin
+                            DynArrayElementValue1 := byte(DynArrayElementPointer^) ;               // 0 .. FF
+                            Prop_Value := '$' + inttohex (DynArrayElementValue1,2) ;
+                            ArrayNode.Add('[' + inttostr(j) + ']' , prop_value) ;       // no recursion
+                        end ;
+                        2 : begin
+                            DynArrayElementValue2 := word(DynArrayElementPointer^) ;               // 0.. FF FF
+                            Prop_Value := '$' + inttohex (DynArrayElementValue2,4) ;
+                            ArrayNode.Add('[' + inttostr(j) + ']' , prop_value) ;
+                        end ;
+                        SizeOf(TObject) : begin
+                            DynArrayElementValue4 := {$ifdef DELPHI_16_UP}int32{$else}integer{$endif}(DynArrayElementPointer^) ;              // 0 .. FF FF FF FF
+                            // is it an integer or a pointer or a 4 bytes value ?
+                            try
+                               subObj := TObject (DynArrayElementValue4);
+                               if (DynArrayElementValue4 <> 0) and (SC_ValidateObj(subObj)) then begin
+                                 Prop_Value := '@' + inttohex (DynArrayElementValue4,8) ;
+                                 if (ClassTypeFound = false) and (DynArrayElementValue4 <> 0) then begin
+                                    // if debugger stop here, ignore and continue
+                                    ArrayNode.Col3 := ArrayNode.Col3 + ', class type = ' + subObj.ClassName ;
+                                    ClassTypeFound := True;
+                                 end;
+
+                               end else begin
+                                  Prop_Value := '$' + inttohex (DynArrayElementValue4,8) ;
+                                  subObj := nil;
+                               end;
+
+                            except
+                               on e : Exception do begin // eat exception. Element is not a class instance. Is it a pointer or a 4 bytes value like an int32?
+                                  Prop_Value := '$' + inttohex (DynArrayElementValue4,8) ;
+                                  subObj := nil ;
+                               end;
+                            end;
+                          
+                            fieldNode := ArrayNode.Add('[' + inttostr(j) + ']' , prop_value) ;
+                            if subObj <> nil then
+                               inner_addValue  (subObj ,fieldNode , MaxLevel-1, AlreadyParsedObject);   // Recursive
+                        end ;
+                        else begin    // 3 bytes or more than 4 bytes
+                            Prop_Value := 'Dump :' ;
+                            for k := 0 to DynArrayObject.ElemSize -1 do begin
+                               DynArrayElementValue1 := byte(DynArrayElementPointer^) ;               // 0 .. FF
+                               Prop_Value := Prop_Value + ' $' + inttohex (DynArrayElementValue1,2) ;
+                               {$ifdef DELPHI_16_UP}
+                               DynArrayElementPointer := pbyte(DynArrayElementPointer) + 1;
+                               {$endif}
+                            end;
+                            ArrayNode.Add('[' + inttostr(j) + ']' , prop_value) ;
+                        end ;
+                     end;                        
+                  end;                   
+               end;
+               
+            else
+               begin
+                  // tkSet 
+                  // tkEnumeration
+                  // tkUnknown
+                  // tkVariant
+                  // tkRecord
+                  // tkInterface
+				  case PropInfo^.PropType^.Kind of
+				    tkRecord:
+				  else
+                    VariantPropValue := GetPropValue(AObject,  string(PropInfo.Name),true) ;
+                    Prop_Value := tt_GetVarValue (VariantPropValue,strType) ;
+
+                    upperNode.Add(String(prop_name) , prop_value) ;
+				  end; 
+                  
+
                end ;
          end ;
       end;  // for each prop
@@ -5913,6 +6673,15 @@ begin
       FreeMem(TempList);
    end;
 end ;
+
+function TTraceNode.IsRouteToMain: Boolean;
+begin
+  case FRouteToMain of
+    dsFollowDefault: Result := _RouteToMain;
+    dsTrue: Result := True;
+    dsFalse: Result := False;
+  end;
+end;
 
 //------------------------------------------------------------------------------
 
@@ -6071,8 +6840,8 @@ procedure TTraceNode.DisplayFields (const AObject: TObject; const flags : TraceD
 var
    FieldGroup : TMemberNode ;
    EventGroup : TMemberNode ;
-   obj, subObj : TObject ;
-   I, Count: Integer;
+   subObj : TObject ;
+   I,J,K, Count: Integer;
    TypeInfo : PTypeInfo ;
    PropInfo: PPropInfo;
    TempList: PPropList;
@@ -6083,7 +6852,14 @@ var
    Prop_Name      : String ;
    Prop_Type      : String ;
    Prop_Value     : string ;
-   //Prop_ClassType : String ;
+
+   DynArrayPointer: Pointer;
+   DynArrayObject: TDynArray;
+   DynArrayElementPointer : Pointer ;
+   DynArrayElementValue1 : byte ;
+   DynArrayElementValue2 : word ;
+   DynArrayElementValue4 : {$ifdef DELPHI_16_UP}int32{$else}integer{$endif} ;
+   ClassTypeFound : Boolean ;
 
    //------------------------------------------------------
    // add to the property group
@@ -6115,10 +6891,14 @@ var
    //------------------------------------------------------
 
 begin
+   if AObject = nil then begin
+      fMembers.Add( TMemberNode.create ('nil').SetFontDetail(0,true)) ;
+      exit ;
+   end ;
+
    TypeInfo := PTypeInfo(AObject.ClassInfo) ;
    if TypeInfo = nil then
       exit ;
-   obj := AObject ;
    Count := GetPropList(typeInfo, TempList);   // if Count is zero , FreeMem(TempList) don't have to be called
    if Count > 0 then
    try
@@ -6137,49 +6917,113 @@ begin
          //  tkString, tkSet, tkClass, tkMethod, tkWChar, tkLString, tkWString,
          //  tkVariant, tkArray, tkRecord, tkInterface, tkInt64, tkDynArray, tkUString);
          case PropInfo^.PropType^.Kind of
-            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64 :
+            tkInteger,tkString,tkWChar,tkLString,tkWString,tkInt64{$ifdef DELPHI_16_UP}, tkUString{$endif} :
                begin
-                  if obj <> nil then begin
-                     VariantPropValue := GetPropValue(AObject, String(PropInfo.Name),true) ;
-                     Prop_Value := VariantPropValue ;
-                  end ;
-                  AddToFieldGroup() ;
+
+                  VariantPropValue := GetPropValue(AObject, String(PropInfo.Name),true) ;
+                  Prop_Value := VariantPropValue ;   
+                  AddToFieldGroup() ;   // prop_name , prop_value, prop_type
                end ;
+
             tkClass :
                begin
-                  intPropValue := GetOrdProp(obj, PropInfo) ;
+                  intPropValue := GetOrdProp(AObject, PropInfo) ;
                   if intPropValue = 0 then  // the property point to a nil TObject
                      Prop_Value := 'nil'
                   else begin
                      subObj := TObject (intPropValue);
-                     // get the className of the object property
                      Prop_Type := subObj.ClassName ;
-                     Prop_Value := intToStr (intPropValue) ;  // value is the adresse reference
-                     //Prop_ClassType := subObj.ClassName ;
+                     Prop_Value := '@' + inttohex (integer(intPropValue),2) ;  // value is the adresse reference
                   end;
-                  AddToFieldGroup() ;
+                  AddToFieldGroup() ;  // prop_name , prop_value, prop_type
                end ;
+            {$ifdef DELPHI_16_UP}
+            tkClassRef, tkPointer, tkProcedure {, tkMRecord} :
+               begin
+
+               end;
+            {$endif}
             tkMethod :   // events
                begin
                   prop_type := MethodSyntax (PropInfo) ;
-                  if obj <> nil then begin
-                     intPropValue := GetOrdProp(AObject, PropInfo) ;  // how to handle that value ? negative or small
-                     if intPropValue = 0 then
-                        Prop_Value := 'nil'
-                     else
-                        Prop_Value := 'Pointer' ;
-                  end ;
+
+                  intPropValue := GetOrdProp(AObject, PropInfo) ;  // how to handle that value ? negative or small
+                  if intPropValue = 0 then
+                     Prop_Value := 'nil'
+                  else
+                     Prop_Value := '@' + inttohex (integer(intPropValue),2) ;
+
                   AddToEventGroup() ;
                end ;
-            else
-               begin  // enumeration, ...
-                  if obj <> nil then begin
-                     VariantPropValue := GetPropValue(AObject, string(PropInfo.Name),true) ;
-                     Prop_Value := tt_GetVarValue (VariantPropValue,strType) ;
-                     if PropInfo^.PropType^.Kind = tkVariant then
-                        Prop_Type := Prop_Type + '(' + strType + ')' ;
+               
+            tkDynArray :   // tkArray
+               begin                                                                 
+                  DynArrayPointer := GetDynArrayProp(AObject, PropInfo);  // from System.TypInfo => GetPropValue where kind = tkDynArray 
+                 
+                  DynArrayObject.Init(PropInfo^.PropType^,DynArrayPointer) ;     // aTypeInfo: pointer; var aValue; aCountPointer: PInteger=nil);
+                  prop_type := string(DynArrayObject.ArrayTypeName) + ' : ' + GetPropertyTypeString (PropInfo^.PropType^.Kind) + '[' + IntToStr(DynArrayObject.Count) + ']' + ', element size = ' + IntToStr(DynArrayObject.ElemSize) ;
+                  Prop_Value := '@' + inttohex (Integer(DynArrayPointer),2) + ' :' ; 
 
-                  end ;
+                  ClassTypeFound := False ;
+                  for j := 0 to DynArrayObject.Count-1 do
+                  begin
+                     DynArrayElementPointer := DynArrayObject.ElemPtr(j) ;
+                     case DynArrayObject.ElemSize of
+                        1 : begin
+                            DynArrayElementValue1 := byte(DynArrayElementPointer^) ;               // 0 .. FF
+                            Prop_Value := Prop_Value + ' $' + inttohex (DynArrayElementValue1,2) ;
+                        end ;
+                        2 : begin
+                            DynArrayElementValue2 := word(DynArrayElementPointer^) ;               // 0.. FF FF
+                            Prop_Value := Prop_Value + ' $' + inttohex (DynArrayElementValue2,4) ;
+                        end ;
+                        SizeOf(TObject) : begin
+                            DynArrayElementValue4 := {$ifdef DELPHI_16_UP}int32{$else}Integer{$endif}(DynArrayElementPointer^) ;              // 0 .. FF FF FF FF
+                            // is it an integer or a pointer ?
+                            try
+                               subObj := TObject (DynArrayElementValue4);
+                               if (DynArrayElementValue4 <> 0) and (SC_ValidateObj(subObj)) then begin
+                                  if (ClassTypeFound = false) and (DynArrayElementValue4 <> 0) then begin
+                                     prop_type := prop_type + ', class type = ' + subObj.ClassName ;
+                                     ClassTypeFound := True;
+                                  end;
+                               end else begin
+                                 // prop_type := ???
+                               end;
+                            except
+                                // eat exception. Element is not a class instance
+                            end;
+
+                            Prop_Value := Prop_Value + ' $' + inttohex (DynArrayElementValue4,8) ;
+                        end ;
+                        else begin  // record ?
+                            for k := 0 to DynArrayObject.ElemSize -1 do begin
+                               DynArrayElementValue1 := byte(DynArrayElementPointer^) ;               // 0 .. FF
+                               Prop_Value := Prop_Value + ' $' + inttohex (DynArrayElementValue1,2) ;
+                               {$ifdef DELPHI_16_UP}
+                               DynArrayElementPointer := pbyte(DynArrayElementPointer) + 1;
+                               {$endif}
+                            end;
+                        end ;
+                     end;                        
+                  end;                   
+                  AddToFieldGroup() ;  // prop_name , prop_value, prop_type
+               end;
+
+            else
+               begin  
+                  // tkSet 
+                  // tkEnumeration
+                  // tkUnknown
+                  // tkVariant
+                  // tkRecord
+                  // tkInterface
+
+                  VariantPropValue := GetPropValue(AObject, string(PropInfo.Name),true) ;
+                  Prop_Value := tt_GetVarValue (VariantPropValue,strType) ;
+                  if PropInfo^.PropType^.Kind = tkVariant then
+                     Prop_Type := Prop_Type + '(' + strType + ')' ;
+
                   AddToFieldGroup() ;
                end ;
          end ;
@@ -6193,28 +7037,40 @@ end ;
 
 // ITraceNodeEx
 
+//TTypeKind = (tkUnknown, tkInteger, tkChar, tkEnumeration, tkFloat,
+//  tkString, tkSet, tkClass, tkMethod, tkWChar, tkLString, tkWString,
+//  tkVariant, tkArray, tkRecord, tkInterface, tkInt64, tkDynArray, tkUString,
+//  tkClassRef, tkPointer, tkProcedure {, tkMRecord});
+
 function TTraceNode.GetPropertyTypeString (const TypeKind : TypInfo.TTypeKind) : String ;
 begin
   result := '' ;
   case TypeKind of
-     tkUnknown      : result := 'Unknown' ;
-     tkInteger      : result := 'Integer' ;
-     tkChar         : result := 'Char' ;
-     tkEnumeration  : result := 'Enumeration' ;
-     tkFloat        : result := 'Float' ;
-     tkString       : result := 'String' ;
-     tkSet          : result := 'Set' ;
-     tkClass        : result := 'Class' ;
-     tkMethod       : result := 'Method' ;
-     tkWChar        : result := 'WChar' ;
-     tkLString      : result := 'LString' ;
-     tkWString      : result := 'WString' ;
-     tkVariant      : result := 'Variant' ;
-     tkArray        : result := 'Array' ;
-     tkRecord       : result := 'Record' ;
-     tkInterface    : result := 'Interface' ;
-     tkInt64        : result := 'Int64' ;
-     tkDynArray     : result := 'DynArray' ;
+     tkUnknown      : result := 'Unknown' ;      // A place holder value. Never used
+     tkInteger      : result := 'Integer' ;      // Used for any ordinal type and sub-range types
+     tkChar         : result := 'Char' ;         // Char and AnsiChar types (where Char and AnsiChar are synonyms)
+     tkEnumeration  : result := 'Enumeration' ;  // All enumerated types. This includes Boolean, ByteBool, WordBool, LongBool and Bool
+     tkFloat        : result := 'Float' ;        // Any floating point type except Real, which explains why Real properties are not fully supported
+     tkString       : result := 'String' ;       // Old-style string types, e.g. String[12] and ShortString
+     tkSet          : result := 'Set' ;          // Set types
+     tkClass        : result := 'Class' ;        // Class types
+     tkMethod       : result := 'Method' ;       // Procedure and function method types
+     tkWChar        : result := 'WChar' ;        // WideChar type, new in Delphi 2
+     tkLString      : result := 'LString' ;      // Delphi 2+ long strings (made of AnsiChars)
+     tkWString      : result := 'WString' ;      // The Delphi 3 constant which replaces tkLWString
+     tkVariant      : result := 'Variant' ;      // Variant type, new in Delphi 2
+     tkArray        : result := 'Array' ;        // Array types, new in Delphi 3
+     tkRecord       : result := 'Record' ;       // Record types, new in Delphi 3
+     tkInterface    : result := 'Interface' ;    // Interface types, new in Delphi 3
+     tkInt64        : result := 'Int64' ;        // 64-bit integers, new in Delphi 4
+     tkDynArray     : result := 'Array' ;        // Dynamic array types, new in Delphi 4
+     {$ifdef DELPHI_16_UP}
+     tkUString      : result := 'UString' ;      //
+     tkClassRef     : result := 'ClassRef' ;     //
+     tkPointer      : result := 'Pointer' ;      //
+     tkProcedure    : result := 'Procedure' ;    //
+     //tkMRecord      : result := 'MRecord' ;
+     {$endif}
   end ;
 end ;
 
@@ -6581,6 +7437,8 @@ begin
    end ;
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
+   FDupeNode := nil;
+   FRouteToMain := dsFollowDefault;
 end;
 
 //------------------------------------------------------------------------------
@@ -6605,6 +7463,8 @@ begin
    end ;
    fMembers := nil ; // created only when needed ;
    fTime := 0 ;      // tracenodeEx
+   FDupeNode := nil;
+   FRouteToMain := dsFollowDefault;
 end;
 
 //------------------------------------------------------------------------------
@@ -6894,6 +7754,7 @@ begin
    // We will be waiting on these objects.
    HandlesToWaitFor[0] := CloseEvent;
    HandlesToWaitFor[1] := MessageReady ;
+   MsgThreadInLoop := true ;
 
    // This is the main loop.  Loop until we break out.
    while True do
@@ -7052,6 +7913,7 @@ begin
               end;
        end; // case dwHandleSignaled of
     end; {main loop}
+    MsgThreadInLoop := false ;
     // freeOnterminate = true
 end;
 
@@ -7693,6 +8555,7 @@ begin
    case vt of
       VT_EMPTY : result := 'Empty' ;       // better than display empty ('') string
       VT_NULL : result := 'Null' ;         // better than display empty ('') string
+      VT_UNKNOWN : result := 'Unknown' ;
 
       VT_DISPATCH :
       begin
@@ -7743,8 +8606,14 @@ begin
   info.Name:=PAnsiChar(Name);
   info.ThreadID:=$FFFFFFFF;
   info.Flags:=0;
-  try  // mod rb
-    //RaiseException($406D1388, 0, SizeOf(info) div SizeOf(LongWord), PDWord(@info));
+  try
+    // MOD_RB maybe need to comment out?
+    {$DEFINE COMPILER_18_UP} // Delphi 2006
+    {$ifdef COMPILER_18_UP}
+    RaiseException($406D1388, 0, SizeOf(info) div SizeOf(LongWord), PUINT_PTR (@info));  // PUINT_PTR >= XE4
+    {$else}
+    RaiseException($406D1388, 0, SizeOf(info) div SizeOf(LongWord), PDWord (@info));     // PDWord for delphi < XE4
+    {$endif}
   except
   end;
 end;
@@ -7752,6 +8621,7 @@ end;
 
 initialization
    LoadCharTypes;          // this table first
+   MsgThreadInLoop := false ;
    criticalSection := TCriticalSection.Create ;
    FormTraceList   := TObjectList.Create (true) ;  // internal list of form
    setMessageList := TObjectList.Create (false) ;  // don't own object
