@@ -7,14 +7,14 @@ object FrmFilter: TFrmFilter
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -11
-  Font.Name = 'MS Sans Serif'
+  Font.Height = -12
+  Font.Name = 'Segoe UI'
   Font.Style = []
   OldCreateOrder = False
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   PixelsPerInch = 96
-  TextHeight = 13
+  TextHeight = 15
   object PanelBottom: TPanel
     Left = 0
     Top = 58
@@ -85,7 +85,7 @@ object FrmFilter: TFrmFilter
     object butCancel: TButton
       Left = 8
       Top = 8
-      Width = 75
+      Width = 81
       Height = 25
       Cancel = True
       Caption = '&Reset Filter'
@@ -94,9 +94,9 @@ object FrmFilter: TFrmFilter
       OnClick = butCancelClick
     end
     object butFilter: TButton
-      Left = 438
+      Left = 432
       Top = 8
-      Width = 75
+      Width = 81
       Height = 25
       Anchors = [akTop, akRight]
       Caption = '&Apply Filter'
@@ -108,21 +108,23 @@ object FrmFilter: TFrmFilter
   end
   object PanelFilterList: TPanel
     Left = 0
-    Top = 29
+    Top = 31
     Width = 523
-    Height = 29
+    Height = 27
     Align = alClient
     BevelOuter = bvNone
     TabOrder = 0
+    ExplicitTop = 29
+    ExplicitHeight = 29
   end
   object ToolBarAdd: TToolBar
     Left = 0
     Top = 0
     Width = 523
-    Height = 29
+    Height = 31
     AutoSize = True
-    ButtonHeight = 29
-    ButtonWidth = 47
+    ButtonHeight = 31
+    ButtonWidth = 50
     Caption = 'ToolBarAdd'
     EdgeInner = esNone
     EdgeOuter = esNone
