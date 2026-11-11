@@ -42,7 +42,7 @@ type
 
 var
   TraceToolEcho: TTraceToolEcho;
-  WinTrace: IWinTrace = nil;
+  MormotTrace: IWinTrace = nil;
 
 implementation
 
@@ -73,8 +73,8 @@ end;
 class procedure TTraceToolEcho.ClearAll;
 begin
   TTrace.ClearAll;
-  if WinTrace <> nil then
-    WinTrace.ClearAll;
+  if MormotTrace <> nil then
+    MormotTrace.ClearAll;
 end;
 
 constructor TTraceToolEcho.Create;
@@ -161,9 +161,9 @@ end;
 
 class procedure TTraceToolEcho.SetTraceWin(AName: string = 'Mormot');
 begin
-  WinTrace := TTrace.createWinTrace(AName, AName);
-  WinTrace.ClearAll;
-  WinTrace.Debug.Enabled := True;
+  MormotTrace := TTrace.createWinTrace(AName, AName);
+  MormotTrace.ClearAll;
+  MormotTrace.Debug.Enabled := True;
 end;
 
 function TTraceToolEcho.TextWriterEcho(Sender: TWriterClass; Level:
@@ -179,8 +179,8 @@ begin
   if (Length(S) > 1) and IsNumber(S[1]) and IsNumber(S[2]) then
     Delete(S, 1, TRACE_HEADER_LENGTH);
   Trace := MainTrace;
-  if WinTrace <> nil then
-    Trace := WinTrace.Debug;
+  if MormotTrace <> nil then
+    Trace := MormotTrace.Debug;
 
   SetLeftMsgColors(Level, ForeColor, BackColor);
   SetTraceColors(Level, ForeColor2, BackColor2);
@@ -202,6 +202,7 @@ end;
 
 initialization
   TraceToolEcho := TTraceToolEcho.Create;
+  TraceToolEcho.SetTraceWin();
 
 finalization
   TraceToolEcho.Free;
