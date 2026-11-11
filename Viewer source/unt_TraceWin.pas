@@ -4187,7 +4187,10 @@ end;
             if FontDetail.Size <> 0 then
                TargetCanvas.Font.Size := FontDetail.Size;
             if (selected = false) and (FontDetail.Color <> -1) then
-               TargetCanvas.Font.Color := FontDetail.Color;
+               if TraceConfig.AppDisplay_DarkTheme then
+                  TargetCanvas.Font.Color := ConvertFontToDarkTheme(FontDetail.Color)
+               else
+                  TargetCanvas.Font.Color := FontDetail.Color;
          end;
       end;
    end;

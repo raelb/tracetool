@@ -7,6 +7,7 @@ uses
 
 function ConvertToDarkTheme(AColor: TColor; BrightnessFactor: Single = 0.6):
     TColor;
+function ConvertFontToDarkTheme(AColor: TColor): TColor;
 
 function GetWindowsScalingFactor: Double;
 function IsHighDPI: Boolean;
@@ -197,6 +198,19 @@ begin
 
   // Convert back to RGB
   Result := HSLToRGB(H, S, NewL);
+end;
+
+// Font (foreground) color for dark theme: keep hue/saturation, but force the
+// lightness into a light band [0.70..0.90] so text stays readable on dark
+// (or dark-converted) backgrounds. Dark colors (e.g. clBlack) become lightest.
+function ConvertFontToDarkTheme(AColor: TColor): TColor;
+var
+  RGBColor: TColor;
+  H, S, L: Single;
+begin
+  RGBColor := ColorToRGB(AColor);
+  RGBToHSL(RGBColor and $FF, (RGBColor shr 8) and $FF, (RGBColor shr 16) and $FF, H, S, L);
+  Result := HSLToRGB(H, S, 0.70 + 0.20 * (1.0 - L));
 end;
 
 // Alternative approach: Simple inversion
