@@ -798,6 +798,23 @@ begin
      FrmInternalTraces.free;
      FrmInternalTraces := nil ;   // TODO : check before close and free
   end ;
+
+  // Free any TFrmBase form still alive. Closed WinTrace windows are only hidden
+  // (caHide) and removed from FormTraceList/BaseList, but stay docked in their
+  // tab; tail/eventlog windows are not freed above at all. If they are still
+  // docked when the page control is destroyed (inherited Destroy), their undock
+  // message hits the already-freed page list -> AV in TPageControl.GetPage.
+  repeat
+     isclosed := false ;
+     for c := 0 to Screen.FormCount-1 do
+        if Screen.Forms[c] is TFrmBase then begin
+           TFrmBase(Screen.Forms[c]).IsDestroying := true ; // TDockingPagecontrol.MyUndock : always allow
+           Screen.Forms[c].Free ;   // undocks from the still-valid page control
+           isclosed := true ;
+           break ;                  // Screen.Forms changed : rescan
+        end ;
+  until not isclosed ;
+
   inherited Destroy;
 end;
 
