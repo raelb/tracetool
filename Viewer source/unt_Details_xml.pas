@@ -77,9 +77,20 @@ end;
 procedure TFrame_XML.AddComment(const s: string);
 var
   Highlighter: TTEHighlighter;
+  Formatted: string;
 begin
   TFrm_Trace(Owner).CurrentViewers.add(self) ;
-  Editor.Lines.Text := s;
+  // mORMot traces: "<unit.Class(addr)> [text] {json} [text]" -> format the json part
+  if HasMormotUnitPrefix(s) and TryFormatEmbeddedJSON(s, Formatted) then
+  begin
+    Editor.Lines.Text := Formatted;
+    Highlighter := tehJSON;
+  end
+  else
+  begin
+    Editor.Lines.Text := s;
+    Highlighter := GetHighlighter(S);
+  end;
   Editor.LeftMargin.Visible := True;
   if Editor.Lines.Count = 1 then
   begin
@@ -87,7 +98,6 @@ begin
     Editor.LeftMargin.Visible := False;
   end;
 
-  Highlighter := GetHighlighter(S);
   {$IFDEF LOGGERPRO}
     Log.Info('AddComment: ' + CopyStr(S, 19, 20), Ord(Highlighter).ToString);
   {$ENDIF}
