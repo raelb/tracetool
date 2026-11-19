@@ -202,7 +202,7 @@ end;
 
 initialization
   TraceToolEcho := TTraceToolEcho.Create;
-  TraceToolEcho.SetTraceWin();
+  //TraceToolEcho.SetTraceWin();
 
 finalization
   TraceToolEcho.Free;
